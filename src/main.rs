@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::net::{Ipv4Addr, TcpListener, Shutdown, SocketAddrV4};
 use std::path::Path;
+use std::process::Command;
+use std::ffi::OsStr;
 
 fn argparse(args: &Vec<String>) -> () {
     if args.len() > 1 {
@@ -73,6 +75,7 @@ fn main() {
 
             let file = File::open(&page);
             let mut content: Vec<u8> = Vec::new();
+            let mut mime: &str = "";
             let code: &str;
 
             match file {
@@ -80,6 +83,18 @@ fn main() {
                 Ok(file) => {
                     let mut reader = BufReader::new(file);
                     reader.read_to_end(&mut content).expect("failed to read from file");
+
+                    // if it's a php file, run it through the preprocessor
+                    if path.extension() == Some(OsStr::new("php")) {
+                        // need to tell browser how to read php
+                        mime = "Content-Type: text/html\r\n";
+                        content = Command::new("php")
+                            .arg(path)
+                            .output()
+                            .expect("failed to parse php")
+                            .stdout;
+                    }
+
                     code = "200 OK";
                 },
                 Err(_) => {
@@ -90,9 +105,10 @@ fn main() {
 
             // HTTP response header
             let header = format!(
-                "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n",
+                "HTTP/1.1 {}\r\n{}Content-Length: {}\r\n\r\n",
                 code,
-                content.len(),
+                mime,
+                content.len()
             );
             let response = [
                 header.as_bytes(),
