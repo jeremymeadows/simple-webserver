@@ -2,7 +2,7 @@ use std::io::prelude::*;
 use std::{env, process, str, thread};
 use std::fs::File;
 use std::io::BufReader;
-use std::net::{TcpListener, Shutdown};
+use std::net::{Ipv4Addr, TcpListener, Shutdown, SocketAddrV4};
 use std::path::Path;
 
 fn argparse(args: &Vec<String>) -> () {
@@ -18,8 +18,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     argparse(&args);
 
-    let addr = std::net::SocketAddrV4::new(
-        std::net::Ipv4Addr::new(0, 0, 0, 0), 9999
+    let addr = SocketAddrV4::new(
+        Ipv4Addr::new(0, 0, 0, 0), 9999
     );
 
     let listener = TcpListener::bind(addr).expect("failed to start server");
@@ -46,7 +46,7 @@ fn main() {
             let req = str::from_utf8(&buf).unwrap().replace("\u{0}", "");
 
             // root html directory
-            let src = "/home/jeremy/Projects/easy-endpoints/html";
+            let src = "/home/jeremy/Projects/simple-webserver/html";
             // request method (GET, POST, PUT, etc)
             let method = req.split(' ').collect::<Vec<&str>>()[0];
 
@@ -73,31 +73,29 @@ fn main() {
 
             let file = File::open(&page);
             let mut content: Vec<u8> = Vec::new();
-            let code: String;
+            let code: &str;
 
             match file {
                 // return file contents as string
                 Ok(file) => {
                     let mut reader = BufReader::new(file);
                     reader.read_to_end(&mut content).expect("failed to read from file");
-
-                    code = String::from("200 OK");
+                    code = "200 OK";
                 },
                 Err(_) => {
                     content = String::from("<h2>404</h2>").as_bytes().to_vec();
-
-                    code = String::from("404 NOT FOUND");
+                    code = "404 NOT FOUND";
                 }
             }
 
             // HTTP response header
-            let headers = format!(
+            let header = format!(
                 "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n",
                 code,
                 content.len(),
             );
             let response = [
-                headers.as_bytes(),
+                header.as_bytes(),
                 &content
             ].concat();
 
