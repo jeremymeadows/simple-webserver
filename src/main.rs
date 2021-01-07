@@ -19,10 +19,11 @@ fn main() {
     argparse(&args);
 
     let addr = std::net::SocketAddrV4::new(
-        std::net::Ipv4Addr::new(127, 0, 0, 1), 9999
+        std::net::Ipv4Addr::new(0, 0, 0, 0), 9999
     );
 
     let listener = TcpListener::bind(addr).expect("failed to start server");
+    println!("listening on {:?}", addr);
 
     // loop is always listening for new requests
     loop {
@@ -71,33 +72,36 @@ fn main() {
             }
 
             let file = File::open(&page);
-            let mut content = String::new();
-            let response: String;
+            let mut content: Vec<u8> = Vec::new();
             let code: String;
 
             match file {
                 // return file contents as string
                 Ok(file) => {
                     let mut reader = BufReader::new(file);
-                    reader.read_to_string(&mut content).expect("failed to read from file");
+                    reader.read_to_end(&mut content).expect("failed to read from file");
 
                     code = String::from("200 OK");
                 },
                 Err(_) => {
-                    content = String::from("<h2>404</h2>");
+                    content = String::from("<h2>404</h2>").as_bytes().to_vec();
 
                     code = String::from("404 NOT FOUND");
                 }
             }
 
             // HTTP response header
-            response = format!(
-                "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n{}",
+            let headers = format!(
+                "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n",
                 code,
                 content.len(),
-                content
             );
-            stream.write(response.as_bytes()).expect("failed to write to stream");
+            let response = [
+                headers.as_bytes(),
+                &content
+            ].concat();
+
+            stream.write(&response).expect("failed to write to stream");
             stream.flush().expect("failed to flush stream");
             stream.shutdown(Shutdown::Both).expect("failed to properly terminate stream");
         });
